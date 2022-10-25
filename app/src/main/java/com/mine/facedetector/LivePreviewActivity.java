@@ -23,6 +23,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.media.Image;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -35,6 +36,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import com.google.android.gms.common.annotation.KeepName;
+import com.mine.facedetector.RetrofitStuff.ImageApi;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -50,6 +52,18 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
+
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
+import okhttp3.ResponseBody;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
+import retrofit2.http.Multipart;
 
 /**
  * Live preview demo for ML Kit APIs.
@@ -58,7 +72,7 @@ import java.util.Date;
 public final class LivePreviewActivity extends AppCompatActivity {
 
     private static final String TAG = "LivePreviewActivity";
-
+    private int i = 0;
     private CameraSource cameraSource = null;
     private CameraSourcePreview preview;
     private GraphicOverlay graphicOverlay;
@@ -136,6 +150,7 @@ public final class LivePreviewActivity extends AppCompatActivity {
 
         createCameraSource();
         toggleCamera();
+        retrofitFileUpload();
     }
 
     public String createImageFromBitmap(Bitmap bitmap) {
@@ -191,6 +206,10 @@ public final class LivePreviewActivity extends AppCompatActivity {
                 }else{
                     imgCameraCapture.setImageResource(R.drawable.ic_baseline_camera_grey);
                 }
+                if(i == 0){
+                    screenshot();
+                    i++;
+                }
             }
 
             @Override
@@ -237,7 +256,7 @@ public final class LivePreviewActivity extends AppCompatActivity {
         Bitmap bitmap = Bitmap.createBitmap(view1.getDrawingCache());
         view1.setDrawingCacheEnabled(false);
 
-        String filePath = Environment.getExternalStorageDirectory()+"/Download/"+ Calendar.getInstance().getTime().toString()+".jpg";
+        String filePath = Environment.getExternalStorageDirectory()+"/Pictures/Screenshots/"+ Calendar.getInstance().getTime().toString()+".jpg";
         File fileScreenshot = new File(filePath);
         FileOutputStream fileOutputStream = null;
         try {
@@ -250,6 +269,53 @@ public final class LivePreviewActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
+
+    public void retrofitFileUpload () {
+
+        String baseUrl = "http://10.0.2.2:8000/";
+
+//        String path = Environment.getExternalStorageDirectory().toString()+"/Pictures/Screenshots";
+//        Log.d("JAIDEN", "Path: " + path);
+//        File directory = new File(path);
+//        File[] files = directory.listFiles();
+//        Log.d("JAIDEN", "Size: "+ files.length);
+//        for (int i = 0; i < files.length; i++)
+//        {
+//            Log.d("JAIDEN", "FileName:" + files[i].getName());
+//        }
+//        Log.d("JAIDEN", System.getProperty("user.dir"));
+////        File testFile = new File("MainActivity.java");
+////        Log.d("JAIDEN", "HI: "+testFile.getParent());
+        File file = new File(Environment.getExternalStorageDirectory().toString()+"/Pictures/Screenshots/Screenshot_20221021-104736.png");
+        MultipartBody.Part imagePart = MultipartBody.Part.createFormData("image", file.getName(), RequestBody.create(MediaType.parse("image/*"), file));
+
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(baseUrl)
+                .addConverterFactory(GsonConverterFactory.create()) // gson is used to parse the response
+                .build();
+        ImageApi imageApi = retrofit.create(ImageApi.class);
+        Call<ResponseBody> call = imageApi.postImage(imagePart);
+        Log.d("JAIDEN", "BEFORE");
+        call.enqueue(new Callback<ResponseBody>() {
+            @Override
+            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                Log.d("JAIDEN", "RESPONSE ACCEPTED");
+                if (!response.isSuccessful()) {
+                    return;
+                }
+                return;
+            }
+
+            @Override
+            public void onFailure(Call<ResponseBody> call, Throwable t) {
+                Log.d("JAIDEN", "FAILURE");
+                Log.d("JAIDEN", ""+t);
+                return;
+            }
+        });
+        Toast.makeText(this, "SEND REQUEST", Toast.LENGTH_SHORT).show();
+    }
+
     public void doFileUpload(String path){
         HttpURLConnection connection = null;
         DataOutputStream outputStream = null;
