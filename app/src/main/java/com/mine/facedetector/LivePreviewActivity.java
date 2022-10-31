@@ -64,15 +64,18 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.http.Multipart;
+import java.util.ArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Live preview demo for ML Kit APIs.
  */
 @KeepName
 public final class LivePreviewActivity extends AppCompatActivity {
-
+    private ArrayList<String> imageFilePaths = new ArrayList<>();
     private static final String TAG = "LivePreviewActivity";
-    private int i = 0;
     private CameraSource cameraSource = null;
     private CameraSourcePreview preview;
     private GraphicOverlay graphicOverlay;
@@ -144,13 +147,48 @@ public final class LivePreviewActivity extends AppCompatActivity {
             }else{
                 Toast.makeText(this, "Please capture image only!", Toast.LENGTH_SHORT).show();
             }
+            try {
+                screenshot();
+                Log.d("JAIDEN", "SCREENSHOT");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
 
         });
 
 
         createCameraSource();
         toggleCamera();
-        retrofitFileUpload();
+
+//        String path = Environment.getExternalStorageDirectory().toString()+"/Download";
+//        Log.d("JAIDEN", "Path: " + path);
+//        File directory = new File(path);
+//        Log.d("JAIDEN", ""+directory.getName());
+//        File[] files = directory.listFiles();
+//        Log.d("JAIDEN", "Size: "+ files);
+//        for (int i = 0; i < files.length; i++)
+//        {
+//            Log.d("JAIDEN", "FileName:" + files[i].getName());
+//        }
+//        Log.d("JAIDEN", System.getProperty("user.dir"));
+////        File testFile = new File("MainActivity.java");
+////        Log.d("JAIDEN", "HI: "+testFile.getParent());
+//
+//        String filePath = Environment.getExternalStorageDirectory()+"/Download/"+ "" +".jpg";
+//        File f = new File("");
+        retrofitMultiFileUpload();
+        Runnable everySecond = new Runnable(){
+            public void run(){
+                retrofitMultiFileUpload();
+                for (String filePath: imageFilePaths) {
+                    File file = new File(filePath);
+                    file.delete();
+                }
+                imageFilePaths.clear();
+            }
+        };
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+        executor.scheduleAtFixedRate(everySecond, 0, 3, TimeUnit.SECONDS);
     }
 
     public String createImageFromBitmap(Bitmap bitmap) {
@@ -206,10 +244,6 @@ public final class LivePreviewActivity extends AppCompatActivity {
                 }else{
                     imgCameraCapture.setImageResource(R.drawable.ic_baseline_camera_grey);
                 }
-                if(i == 0){
-                    screenshot();
-                    i++;
-                }
             }
 
             @Override
@@ -255,22 +289,70 @@ public final class LivePreviewActivity extends AppCompatActivity {
         view1.setDrawingCacheEnabled(true);
         Bitmap bitmap = Bitmap.createBitmap(view1.getDrawingCache());
         view1.setDrawingCacheEnabled(false);
+        String fileName = Calendar.getInstance().getTime().toString().replaceAll(":", ".");
 
-        String filePath = Environment.getExternalStorageDirectory()+"/Pictures/Screenshots/"+ Calendar.getInstance().getTime().toString()+".jpg";
-        File fileScreenshot = new File(filePath);
+        String filePath = Environment.getExternalStorageDirectory()+"/Download/"+ fileName +".jpg";
+
+//        File fileScreenshot = new File(filePath);
         FileOutputStream fileOutputStream = null;
+        // TRY CATCH BLOC
         try {
-            fileOutputStream = new FileOutputStream(fileScreenshot);
+            fileOutputStream = new FileOutputStream(filePath);
             bitmap.compress(Bitmap.CompressFormat.JPEG, 30, fileOutputStream);
             fileOutputStream.flush();
             fileOutputStream.close();
-            doFileUpload(filePath);
+//            doFileUpload(filePath);
+            imageFilePaths.add(filePath);
+            Log.d("JAIDEN","SDLFKJSDF");
         } catch (Exception e) {
+            Log.d("JAIDEN", "Error: "+e.toString());
             e.printStackTrace();
-        }
-    }
 
-    public void retrofitFileUpload () {
+        }
+        retrofitFileUpload(filePath);
+    }
+    public void clearFiles () {
+
+    }
+    public void retrofitMultiFileUpload () { // uploads all
+        if (imageFilePaths.size() <=0) return;
+        String baseUrl = "http://10.0.2.2:8000/";
+
+        ArrayList<MultipartBody.Part> images = new ArrayList<>();
+        for (String filePath: imageFilePaths) {
+            File file = new File(filePath);
+            MultipartBody.Part imagePart = MultipartBody.Part.createFormData("images[]", file.getName(), RequestBody.create(MediaType.parse("image/*"), file));
+            images.add(imagePart);
+        }
+
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(baseUrl)
+                .addConverterFactory(GsonConverterFactory.create()) // gson is used to parse the response
+                .build();
+        ImageApi imageApi = retrofit.create(ImageApi.class);
+        MultipartBody.Part[] imagesArr = new MultipartBody.Part[images.size()];
+        imagesArr = images.toArray(imagesArr);
+        Call<ResponseBody> call = imageApi.postImages(imagesArr);
+        call.enqueue(new Callback<ResponseBody>() {
+            @Override
+            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                Log.d("JAIDEN", "RESPONSE ACCEPTED");
+                if (!response.isSuccessful()) {
+                    return;
+                }
+                return;
+            }
+
+            @Override
+            public void onFailure(Call<ResponseBody> call, Throwable t) {
+                Log.d("JAIDEN", "FAILURE");
+                Log.d("JAIDEN", ""+t);
+                return;
+            }
+        });
+        Toast.makeText(this, "SEND REQUEST", Toast.LENGTH_SHORT).show();
+    }
+    public void retrofitFileUpload (String path) {
 
         String baseUrl = "http://10.0.2.2:8000/";
 
@@ -286,7 +368,7 @@ public final class LivePreviewActivity extends AppCompatActivity {
 //        Log.d("JAIDEN", System.getProperty("user.dir"));
 ////        File testFile = new File("MainActivity.java");
 ////        Log.d("JAIDEN", "HI: "+testFile.getParent());
-        File file = new File(Environment.getExternalStorageDirectory().toString()+"/Pictures/Screenshots/Screenshot_20221021-104736.png");
+        File file = new File(path);
         MultipartBody.Part imagePart = MultipartBody.Part.createFormData("image", file.getName(), RequestBody.create(MediaType.parse("image/*"), file));
 
         Retrofit retrofit = new Retrofit.Builder()
