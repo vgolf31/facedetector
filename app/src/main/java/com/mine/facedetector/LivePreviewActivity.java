@@ -303,13 +303,13 @@ public final class LivePreviewActivity extends AppCompatActivity {
             fileOutputStream.close();
 //            doFileUpload(filePath);
             imageFilePaths.add(filePath);
-            Log.d("JAIDEN","SDLFKJSDF");
+            Log.d("JAIDEN","Took Image");
         } catch (Exception e) {
             Log.d("JAIDEN", "Error: "+e.toString());
             e.printStackTrace();
 
         }
-        retrofitFileUpload(filePath);
+//        retrofitFileUpload(filePath);
     }
     public void clearFiles () {
 
@@ -317,6 +317,7 @@ public final class LivePreviewActivity extends AppCompatActivity {
     public void retrofitMultiFileUpload () { // uploads all
         if (imageFilePaths.size() <=0) return;
         String baseUrl = "http://10.0.2.2:8000/";
+        baseUrl = "http://192.168.86.39:8000/";
 
         ArrayList<MultipartBody.Part> images = new ArrayList<>();
         for (String filePath: imageFilePaths) {
