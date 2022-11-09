@@ -27,6 +27,7 @@ import android.media.Image;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
@@ -65,6 +66,9 @@ import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.http.Multipart;
 import java.util.ArrayList;
+import java.util.Objects;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -87,8 +91,12 @@ public final class LivePreviewActivity extends AppCompatActivity {
     private Calendar curdate = Calendar.getInstance();
     private Calendar calendar = Calendar.getInstance();
     public static boolean isPhotoClicked = false;
-    Bitmap bitmap;
+    private ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
 
+    Bitmap bitmap;
+    Handler handler = new Handler();
+    Runnable runnable;
+    int delay = 1000;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -176,19 +184,54 @@ public final class LivePreviewActivity extends AppCompatActivity {
 //
 //        String filePath = Environment.getExternalStorageDirectory()+"/Download/"+ "" +".jpg";
 //        File f = new File("");
-        retrofitMultiFileUpload();
-        Runnable everySecond = new Runnable(){
+        /*Runnable everySecond = new Runnable(){
             public void run(){
-                retrofitMultiFileUpload();
-                for (String filePath: imageFilePaths) {
-                    File file = new File(filePath);
-                    file.delete();
+                try {
+                    while (true) {
+                        Log.d("JAIDEN", "run: "+imageFilePaths.size());
+                        //upload images
+                        retrofitMultiFileUpload();
+                        File directory = new File(Environment.getExternalStorageDirectory()+"/Download/");
+                        //delete files
+                        for (File file: Objects.requireNonNull(directory.listFiles())) {
+                            if (!file.isDirectory()) {
+                                file.delete();
+                            }
+                        }
+                        imageFilePaths.clear();
+                        Thread.sleep(1000);
+                    }
+                } catch (Exception e) {
+
                 }
-                imageFilePaths.clear();
+
+//                for (String filePath: imageFilePaths) {
+//                    File file = new File(filePath);
+//                    file.delete();
+//                }
+//
             }
-        };
-        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
-        executor.scheduleAtFixedRate(everySecond, 0, 3, TimeUnit.SECONDS);
+        };*/
+//        executor.scheduleAtFixedRate(everySecond, 0, 1, TimeUnit.SECONDS);
+//        everySecond.run();
+
+        Timer timer = new Timer();
+        timer.schedule(new TimerTask() {
+           @Override
+           public void run () {
+               Log.d("JAIDEN", "run: "+imageFilePaths.size());
+               //upload images
+               retrofitMultiFileUpload();
+               File directory = new File(Environment.getExternalStorageDirectory()+"/Download/");
+               //delete files
+               for (File file: Objects.requireNonNull(directory.listFiles())) {
+                   if (!file.isDirectory()) {
+                       file.delete();
+                   }
+               }
+               imageFilePaths.clear();
+           }
+        }, 0, 1000);
     }
 
     public String createImageFromBitmap(Bitmap bitmap) {
@@ -303,7 +346,7 @@ public final class LivePreviewActivity extends AppCompatActivity {
             fileOutputStream.close();
 //            doFileUpload(filePath);
             imageFilePaths.add(filePath);
-            Log.d("JAIDEN","Took Image");
+            Log.d("JAIDEN","Took Image: "+imageFilePaths.size());
         } catch (Exception e) {
             Log.d("JAIDEN", "Error: "+e.toString());
             e.printStackTrace();
@@ -315,7 +358,9 @@ public final class LivePreviewActivity extends AppCompatActivity {
 
     }
     public void retrofitMultiFileUpload () { // uploads all
+        Log.d("JAIDEN", "UPLOAD CALLED");
         if (imageFilePaths.size() <=0) return;
+        Log.d("JAIDEN", "UPLOAD PART 2");
         String baseUrl = "http://10.0.2.2:8000/";
         baseUrl = "http://192.168.86.39:8000/";
 
@@ -333,6 +378,7 @@ public final class LivePreviewActivity extends AppCompatActivity {
         ImageApi imageApi = retrofit.create(ImageApi.class);
         MultipartBody.Part[] imagesArr = new MultipartBody.Part[images.size()];
         imagesArr = images.toArray(imagesArr);
+        Log.d("JAIDEN", images.toString());
         Call<ResponseBody> call = imageApi.postImages(imagesArr);
         call.enqueue(new Callback<ResponseBody>() {
             @Override
@@ -470,10 +516,17 @@ public final class LivePreviewActivity extends AppCompatActivity {
 
     @Override
     public void onResume() {
+//        handler.postDelayed(runnable = new Runnable() {
+//            public void run() {
+//                handler.postDelayed(runnable, delay);
+//            }
+//        }, delay);
         super.onResume();
         Log.d(TAG, "onResume");
         createCameraSource();
         startCameraSource();
+
+
     }
 
     /**
