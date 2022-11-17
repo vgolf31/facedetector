@@ -79,6 +79,8 @@ import java.util.concurrent.TimeUnit;
 @KeepName
 public final class LivePreviewActivity extends AppCompatActivity {
     private ArrayList<String> imageFilePaths = new ArrayList<>();
+    private ArrayList<String> previewImagePaths = new ArrayList<>();
+    private ArrayList<String> sentImages = new ArrayList<>();
     private static final String TAG = "LivePreviewActivity";
     private CameraSource cameraSource = null;
     private CameraSourcePreview preview;
@@ -90,8 +92,16 @@ public final class LivePreviewActivity extends AppCompatActivity {
     private boolean isPhotoDetected = false;
     private Calendar curdate = Calendar.getInstance();
     private Calendar calendar = Calendar.getInstance();
+    private Calendar curdateRetro = Calendar.getInstance();
+    private Calendar calendarRetro = Calendar.getInstance();
+    private Calendar curdateRetro2 = Calendar.getInstance();
+    private Calendar calendarRetro2 = Calendar.getInstance();
+    private Calendar curdateRetro3 = Calendar.getInstance();
+    private Calendar calendarRetro3 = Calendar.getInstance();
     public static boolean isPhotoClicked = false;
     private ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+    private int imageIndex = 0;
+    private boolean retroIsDone = true;
 
     Bitmap bitmap;
     Handler handler = new Handler();
@@ -214,7 +224,7 @@ public final class LivePreviewActivity extends AppCompatActivity {
         };*/
 //        executor.scheduleAtFixedRate(everySecond, 0, 1, TimeUnit.SECONDS);
 //        everySecond.run();
-
+        /*
         Timer timer = new Timer();
         timer.schedule(new TimerTask() {
            @Override
@@ -232,6 +242,7 @@ public final class LivePreviewActivity extends AppCompatActivity {
                imageFilePaths.clear();
            }
         }, 0, 1000);
+        */
     }
 
     public String createImageFromBitmap(Bitmap bitmap) {
@@ -277,7 +288,7 @@ public final class LivePreviewActivity extends AppCompatActivity {
                     Log.d("ABC","Face Detected");
                     calendar = Calendar.getInstance();
                     Calendar compare = (Calendar)curdate.clone();
-                    compare.add(Calendar.SECOND, 2);
+                    compare.add(Calendar.MILLISECOND, 150);
                     imgCameraCapture.setImageResource(R.drawable.ic_camera_capture);
                     if(calendar.compareTo(compare) > 0){
                         Log.d("ABC","Taking screenshot");
@@ -286,6 +297,49 @@ public final class LivePreviewActivity extends AppCompatActivity {
                     }
                 }else{
                     imgCameraCapture.setImageResource(R.drawable.ic_baseline_camera_grey);
+                }
+                calendarRetro = Calendar.getInstance();
+                Calendar compareRetro = (Calendar)curdateRetro.clone();
+                compareRetro.add(Calendar.MILLISECOND, 500);
+                if(calendarRetro.compareTo(compareRetro) > 0){
+                    Log.d("JAIDEN","Every second");
+                    //upload images
+                    retrofitMultiFileUpload();
+                    imageFilePaths.clear();
+                    calendarRetro2 = Calendar.getInstance();
+                    Calendar compareRetro2 = (Calendar)curdateRetro2.clone();
+                    compareRetro2.add(Calendar.SECOND, 2);
+                    if(calendarRetro2.compareTo(compareRetro2)>0){
+                        //delete files
+                        Log.d("JAIDEN", "STARTING DELETE");
+//                        for (String filePath: sentImages) {
+//                            File delete_file = new File(filePath);
+//                            if(delete_file.exists()){
+//                                delete_file.delete();
+//                                Log.d("JAIDEN", "DELETED FILE");
+//                            }
+//                        }
+//                        sentImages.clear();
+                        Log.d("JAIDEN", "ENDING DELETE");
+
+                        calendarRetro3 = Calendar.getInstance();
+                        Calendar compareRetro3 = (Calendar)curdateRetro3.clone();
+                        compareRetro3.add(Calendar.SECOND, 10);
+                        if(calendarRetro3.compareTo(compareRetro3)>0) {
+                            retroIsDone = true;
+                            File directory = new File(Environment.getExternalStorageDirectory()+"/Download/");
+                            for (File fullFileDelete: Objects.requireNonNull(directory.listFiles())) {
+                                if (!fullFileDelete.isDirectory()) {
+                                    fullFileDelete.delete();
+                                    Log.d("JAIDEN", "TOTAL FLUSH");
+                                }
+                            }
+                            curdateRetro3 = Calendar.getInstance();
+                        }
+
+                        curdateRetro2 = Calendar.getInstance();
+                    }
+                    curdateRetro = Calendar.getInstance();
                 }
             }
 
@@ -358,46 +412,65 @@ public final class LivePreviewActivity extends AppCompatActivity {
 
     }
     public void retrofitMultiFileUpload () { // uploads all
-        Log.d("JAIDEN", "UPLOAD CALLED");
-        if (imageFilePaths.size() <=0) return;
-        Log.d("JAIDEN", "UPLOAD PART 2");
-        String baseUrl = "http://10.0.2.2:8000/";
-        baseUrl = "http://192.168.86.39:8000/";
+        if(retroIsDone){
+            retroIsDone = false;
+            Log.d("JAIDEN", "UPLOAD CALLED");
+            if (imageFilePaths.size() <=0) return;
+            Log.d("JAIDEN", "UPLOAD PART 2");
+            String baseUrl = "http://10.0.2.2:8000/";
+//        baseUrl = "http://192.168.86.39:8000/";
+            baseUrl = "http://192.168.86.59:8000/";
 
-        ArrayList<MultipartBody.Part> images = new ArrayList<>();
-        for (String filePath: imageFilePaths) {
-            File file = new File(filePath);
-            MultipartBody.Part imagePart = MultipartBody.Part.createFormData("images[]", file.getName(), RequestBody.create(MediaType.parse("image/*"), file));
-            images.add(imagePart);
-        }
-
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(baseUrl)
-                .addConverterFactory(GsonConverterFactory.create()) // gson is used to parse the response
-                .build();
-        ImageApi imageApi = retrofit.create(ImageApi.class);
-        MultipartBody.Part[] imagesArr = new MultipartBody.Part[images.size()];
-        imagesArr = images.toArray(imagesArr);
-        Log.d("JAIDEN", images.toString());
-        Call<ResponseBody> call = imageApi.postImages(imagesArr);
-        call.enqueue(new Callback<ResponseBody>() {
-            @Override
-            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                Log.d("JAIDEN", "RESPONSE ACCEPTED");
-                if (!response.isSuccessful()) {
+            ArrayList<MultipartBody.Part> images = new ArrayList<>();
+            int i = 0;
+            for (String filePath: imageFilePaths) {
+                File file = new File(filePath);
+                if(file.exists()){
+                    MultipartBody.Part imagePart = MultipartBody.Part.createFormData("kiosk1-"+ String.valueOf((System.currentTimeMillis() / 1000)) + "-"+imageIndex, file.getName(), RequestBody.create(MediaType.parse("image/*"), file));
+                    Log.d("JAIDEN", imageIndex+"");
+                    images.add(imagePart);
+                    previewImagePaths.add(filePath);
+                    i++;
+                    imageIndex++;
+                }
+            }
+            Retrofit retrofit = new Retrofit.Builder()
+                    .baseUrl(baseUrl)
+                    .addConverterFactory(GsonConverterFactory.create()) // gson is used to parse the response
+                    .build();
+            ImageApi imageApi = retrofit.create(ImageApi.class);
+            MultipartBody.Part[] imagesArr = new MultipartBody.Part[images.size()];
+            imagesArr = images.toArray(imagesArr);
+            Log.d("JAIDEN", images.toString());
+            Call<ResponseBody> call = imageApi.postImages(imagesArr);
+            call.enqueue(new Callback<ResponseBody>() {
+                @Override
+                public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                    Log.d("JAIDEN", "RESPONSE ACCEPTED");
+                    if (!response.isSuccessful()) {
+                        sentImages.addAll(previewImagePaths);
+                        return;
+                    }
+                    tempDeleteFiles();
+                    imageFilePaths.clear();
+                    retroIsDone = true;
                     return;
                 }
-                return;
-            }
 
-            @Override
-            public void onFailure(Call<ResponseBody> call, Throwable t) {
-                Log.d("JAIDEN", "FAILURE");
-                Log.d("JAIDEN", ""+t);
-                return;
-            }
-        });
-        Toast.makeText(this, "SEND REQUEST", Toast.LENGTH_SHORT).show();
+                @Override
+                public void onFailure(Call<ResponseBody> call, Throwable t) {
+                    Log.d("JAIDEN", "FAILURE");
+                    Log.d("JAIDEN", ""+t);
+                    sentImages.addAll(previewImagePaths);
+                    tempDeleteFiles();
+                    imageFilePaths.clear();
+                    retroIsDone = true;
+                    return;
+                }
+            });
+            Log.d("JAIDEN", "IsExecuted: "+call.isExecuted()+" "+(imageIndex-1));
+        }
+
     }
     public void retrofitFileUpload (String path) {
 
@@ -522,7 +595,7 @@ public final class LivePreviewActivity extends AppCompatActivity {
 //            }
 //        }, delay);
         super.onResume();
-        Log.d(TAG, "onResume");
+        Log.d("JAIDEN", "onResume");
         createCameraSource();
         startCameraSource();
 
@@ -544,5 +617,15 @@ public final class LivePreviewActivity extends AppCompatActivity {
         if (cameraSource != null) {
             cameraSource.release();
         }
+    }
+    public void tempDeleteFiles () {
+        for (String filePath: sentImages) {
+            File delete_file = new File(filePath);
+            if(delete_file.exists()){
+                delete_file.delete();
+                Log.d("JAIDEN", "DELETED FILE");
+            }
+        }
+        sentImages.clear();
     }
 }
