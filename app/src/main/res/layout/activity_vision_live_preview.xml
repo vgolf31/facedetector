@@ -57,6 +57,18 @@
             android:layout_marginEnd="20dp"
             android:src="@drawable/ic_baseline_check_green" />
 
+        <Button
+            android:id="@+id/back_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentEnd="true"
+            android:layout_marginStart="78dp"
+            android:layout_marginTop="6dp"
+            android:layout_marginEnd="14dp"
+            android:layout_toEndOf="@+id/imgCameraCapture"
+            android:text="Back" />
+
     </RelativeLayout>
 
     <ImageView

@@ -18,6 +18,7 @@ package com.mine.facedetector;
 
 import android.Manifest;
 import android.app.Activity;
+import android.bluetooth.le.ScanCallback;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -30,6 +31,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -102,11 +104,15 @@ public final class LivePreviewActivity extends AppCompatActivity {
     private ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
     private int imageIndex = 0;
     private boolean retroIsDone = true;
+    private ArrayList<Call> ongoingCalls = new ArrayList<>();
 
     Bitmap bitmap;
     Handler handler = new Handler();
     Runnable runnable;
     int delay = 1000;
+
+    Context mContext = this;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -135,6 +141,16 @@ public final class LivePreviewActivity extends AppCompatActivity {
           toggleCamera();
         });
 
+        Button backButton = findViewById(R.id.back_button);
+        backButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick (View view) {
+                cancelRequests();
+                Intent i = new Intent(mContext,MainActivity.class);
+                startActivity(i);
+            }
+        });
+
         imgCapture.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -144,6 +160,8 @@ public final class LivePreviewActivity extends AppCompatActivity {
                 }
             }
         });
+
+
         imgDone.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -245,6 +263,18 @@ public final class LivePreviewActivity extends AppCompatActivity {
         */
     }
 
+    public void cancelRequests () {
+        for (Call c: ongoingCalls) {
+            try {
+                c.cancel();
+            } catch (Exception e) {
+                // do nothing
+            }
+        }
+        retroIsDone = true;
+        ongoingCalls.clear();
+    }
+
     public String createImageFromBitmap(Bitmap bitmap) {
         String fileName = "myImage";//no .png or .jpg needed
         try {
@@ -302,7 +332,7 @@ public final class LivePreviewActivity extends AppCompatActivity {
                 Calendar compareRetro = (Calendar)curdateRetro.clone();
                 compareRetro.add(Calendar.MILLISECOND, 500);
                 if(calendarRetro.compareTo(compareRetro) > 0){
-                    Log.d("JAIDEN","Every second");
+//                    Log.d("JAIDEN","Every second");
                     //upload images
                     retrofitMultiFileUpload();
                     imageFilePaths.clear();
@@ -426,7 +456,7 @@ public final class LivePreviewActivity extends AppCompatActivity {
             for (String filePath: imageFilePaths) {
                 File file = new File(filePath);
                 if(file.exists()){
-                    MultipartBody.Part imagePart = MultipartBody.Part.createFormData("kiosk1-"+ String.valueOf((System.currentTimeMillis() / 1000)) + "-"+imageIndex, file.getName(), RequestBody.create(MediaType.parse("image/*"), file));
+                    MultipartBody.Part imagePart = MultipartBody.Part.createFormData("kiosk2-"+ String.valueOf((System.currentTimeMillis() / 1000)) + "-"+imageIndex, file.getName(), RequestBody.create(MediaType.parse("image/*"), file));
                     Log.d("JAIDEN", imageIndex+"");
                     images.add(imagePart);
                     previewImagePaths.add(filePath);
@@ -443,10 +473,11 @@ public final class LivePreviewActivity extends AppCompatActivity {
             imagesArr = images.toArray(imagesArr);
             Log.d("JAIDEN", images.toString());
             Call<ResponseBody> call = imageApi.postImages(imagesArr);
+
             call.enqueue(new Callback<ResponseBody>() {
                 @Override
                 public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                    Log.d("JAIDEN", "RESPONSE ACCEPTED");
+                    Log.d("JAIDEN", "RESPONSE ACCEPTED: "+ response.message());
                     if (!response.isSuccessful()) {
                         sentImages.addAll(previewImagePaths);
                         return;
@@ -468,9 +499,9 @@ public final class LivePreviewActivity extends AppCompatActivity {
                     return;
                 }
             });
+            ongoingCalls.add(call);
             Log.d("JAIDEN", "IsExecuted: "+call.isExecuted()+" "+(imageIndex-1));
         }
-
     }
     public void retrofitFileUpload (String path) {
 
